@@ -13,7 +13,7 @@ router.put(
       .isEmail()
       .withMessage("Please enter a correct email")
       .custom((value, { req }) => {
-        console.log(req.body);
+        // console.log(req.body);
         return User.findOne({ email: value }).then((userDoc) => {
           if (userDoc) {
             return Promise.reject("E-mail adress already exists");
@@ -26,5 +26,7 @@ router.put(
   ],
   authController.signup
 );
+
+router.post("/login", authController.login);
 
 module.exports = router;

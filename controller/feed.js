@@ -32,6 +32,7 @@ const path = require("path");
 const { validationResult } = require("express-validator");
 
 const Post = require("../models/post");
+const User = require('../models/user');
 
 exports.getPosts = (req, res, next) => {
   // creating pagination and displaying posts in the page
@@ -121,28 +122,44 @@ exports.createPost = (req, res, next) => {
   const imageUrl = req.file.path;
   const title = req.body.title;
   const content = req.body.content;
+  let creator;
 
   const post = new Post({
     title: title,
     imageUrl: imageUrl,
     content: content,
-    creator: { name: "Maxmilian" }
+    // creator: { name: "Maxmilian" }
+    creator:req.userId
+
   });
   post
     .save()
     .then((result) => {
-      console.log("createPostResult : ", result);
-      res.status(201).json({
-        message: "Post created successfully",
-        post: result
-      });
-    })
+      console.log("createdPostResult : ", result);
+
+      return User.findById(req.userId);
+    }).then(user=>{
+        creator = user;
+        user.posts.push(post);
+        return user.save();
+    }).then(result=>{
+        res.status(201).json({
+          message: "Post created successfully",
+          post: post,
+          creator:{_id: creator._id, name: creator.name}
+        });
+      })
+      // res.status(201).json({
+      //   message: "Post created successfully",
+      //   post: result
+      // });
+    // })
     .catch((err) => {
-      // console.log(err);
-      if (!error.statusCode) {
-        err.statusCode = 500;
-      }
-      next(err);
+      console.log(err);
+      // if (!error.statusCode) {
+      //   err.statusCode = 500;
+      // }
+      // next(err);
     });
   //create post in db
   // res.status(201).json({
