@@ -27,7 +27,7 @@ const router = express.Router();
 //GET/ fedd/posts
 router.get("/posts",isAuth,feedController.getPosts);
 
-//POST /feed/post
+// POST /feed/post
 router.post(
   "/post",isAuth,
   [
@@ -47,6 +47,6 @@ router.put(
   ],
   feedController.updatePost
 );
-router.delete("/post/:postId", feedController.deletePost);
+router.delete("/post/:postId",isAuth, feedController.deletePost);
 
 module.exports = router;

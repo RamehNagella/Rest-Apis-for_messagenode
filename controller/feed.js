@@ -42,6 +42,20 @@ exports.getPosts = (req, res, next) => {
   let totalItems;
 
   Post.find()
+  // .then(posts=>{
+  //   console.log('getPosts>>',posts);  
+  //   console.log("loginuserId",req.userId)
+
+  //   if(posts.creator !== req.userId){
+  //     const error = new Error('This user dont have posts.');
+  //     error.statusCode = 404;
+  //     throw error
+  //   }
+  //   return posts.save(); 
+  //  })
+  //  .then(posts=>{
+  //   console.log(">>>>>>>>",posts);
+  //   return posts})
     .countDocuments()
     .then((count) => {
       totalItems = count;
@@ -105,6 +119,7 @@ exports.getPosts = (req, res, next) => {
 exports.createPost = (req, res, next) => {
   console.log("createdPostBody>> ", req.body);
   const errors = validationResult(req);
+  console.log('errorsIncreated post',errors.array());
   if (!errors.isEmpty()) {
     const error = new Error("Validation failed, entered data is incorrect.");
     error.statusCode = 422;
@@ -115,51 +130,61 @@ exports.createPost = (req, res, next) => {
     // });
   }
   if (!req.file) {
-    const error = new Error("No image provided");
+    const error = new Error("No image provided.");
     error.statusCode = 422;
     throw error;
   }
-  const imageUrl = req.file.path;
   const title = req.body.title;
+  const imageUrl = req.file.path;
   const content = req.body.content;
   let creator;
-
+  console.log('creatorFromisAuth >>>',req.userId);
   const post = new Post({
     title: title,
     imageUrl: imageUrl,
     content: content,
     // creator: { name: "Maxmilian" }
     creator:req.userId
-
   });
   post
     .save()
     .then((result) => {
-      console.log("createdPostResult : ", result);
+      // console.log("createdPostResult : ", result);
+      // console.log("isisisisisisisisisisis",req.userId)
 
       return User.findById(req.userId);
     }).then(user=>{
+      console.log('postcomefromGlobal>>//',post)
+
         creator = user;
         user.posts.push(post);
         return user.save();
     }).then(result=>{
+      // console.log("createduserresult!!!!!!",result);
+      // console.log('postcomefromGlobal>>//',post)
         res.status(201).json({
           message: "Post created successfully",
-          post: post,
+          post:post,
           creator:{_id: creator._id, name: creator.name}
         });
-      })
+      // })
       // res.status(201).json({
       //   message: "Post created successfully",
       //   post: result
       // });
+    })
+    // .then(result => {
+    //   res.status(201).json({
+    //     message: 'Post created successfully!',
+    //     post: result
+    //   });
     // })
     .catch((err) => {
-      console.log(err);
-      // if (!error.statusCode) {
-      //   err.statusCode = 500;
-      // }
-      // next(err);
+      // console.log(err);
+      if (!error.statusCode) {
+        err.statusCode = 500;
+      }
+      next(err);
     });
   //create post in db
   // res.status(201).json({
@@ -196,15 +221,21 @@ exports.getPost = (req, res, next) => {
 };
 
 exports.updatePost = (req, res, next) => {
+  // console.log("reqForUpdate>>",req);
+  console.log("reqBodyForUpdate>>",req.body);
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     const error = new Error("Validation failed, entered data is incorrect.");
     error.statusCode = 422;
     throw error;
   }
+  //these will give the post detail dont gives the created user details
   const postId = req.params.postId;
   const title = req.body.title;
   const content = req.body.content;
+
+  // console.log("extrctedPostId??? ",postId);// this will give the post detail dont gives the created user details
 
   let imageUrl = req.body.image;
 
@@ -218,9 +249,18 @@ exports.updatePost = (req, res, next) => {
   }
   Post.findById(postId)
     .then((post) => {
+      console.log('findedPostToUpdate ', post);
+      console.log('createdUserId',req.userId);
+      // from whare it is coming
+
       if (!post) {
         const error = new Error({ message: "Could not found Post!" });
         error.statusCode = 404;
+        throw error;
+      }
+      if(post.creator.toString() !== req.userId){
+        const error = new Error('Not authenticated.')
+        error.statusCode = 403;
         throw error;
       }
       //udating code for imageurl to add new image
@@ -257,6 +297,11 @@ exports.deletePost = (req, res, next) => {
         error.statusCode = 404;
         throw error;
       }
+      if(post.creator.toString() !== req.userId){
+        const error = new Error('Not authenticated.')
+        error.statusCode = 403;
+        throw error;
+      }
       //check logged in user
       // if (postId === post._id) {
       //   return post.findByIdAndRemove(postId);
@@ -267,10 +312,17 @@ exports.deletePost = (req, res, next) => {
     })
     .then((result) => {
       console.log("deletedPost: ", result);
-      res.status(200).json({ message: "Post deleted successfully." });
+      // res.status(200).json({ message: "Post deleted successfully." });
+      //clearing User & Post relation
+      return User.findById(req.userId)
+    }).then(user=>{
+      user.posts.pull(postId)
+      return user.save();
+    }).then(result=>{
+      res.status(200).json({message:'Deleted post.'});
     })
     .catch((err) => {
-      if (err.statusCode) {
+      if (!err.statusCode) {
         err.statusCode = 500;
       }
       next(err);
